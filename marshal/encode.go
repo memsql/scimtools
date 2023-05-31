@@ -4,11 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 
+	"github.com/muir/reflectutils"
 	. "github.com/scim2/tools/attributes"
 )
 
 var marshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
+var idMarshalerType = reflect.TypeOf((*IDMarshaler)(nil)).Elem()
 
 func Marshal(value interface{}) (map[string]interface{}, error) {
 	v := reflect.ValueOf(value)
@@ -27,7 +30,7 @@ func Marshal(value interface{}) (map[string]interface{}, error) {
 		}
 		return m.MarshalSCIM()
 	}
-
+	// fmt.Printf("current Marshal type(%+v), value(%+v), kind(%+v)\n", t, v, t.Kind())
 	switch t.Kind() {
 	case reflect.Interface:
 		if v.IsNil() {
@@ -62,6 +65,7 @@ func Marshal(value interface{}) (map[string]interface{}, error) {
 }
 
 func structEncoder(resource map[string]interface{}, field reflect.Value, tag tag) error {
+	// fmt.Printf("tagis: (%+v)", tag)
 	if tag.sub == nil {
 		if tag.multiValued {
 			return structEncoderSimpleMultiValued(resource, field, tag)
@@ -117,6 +121,29 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 		return nil
 	}
 
+	// fmt.Printf("[structEncoderSimple]: %+v, %+v, %+v\n", field.Kind(), field.Type(), field)
+
+	t := field.Type()
+	if t.Implements(idMarshalerType) {
+		if field.Kind() == reflect.Ptr && field.IsNil() {
+			return errors.New("ptr is nil")
+		}
+
+		m, ok := field.Interface().(IDMarshaler)
+		if !ok {
+			return errors.New("value does not implement marshaler")
+		}
+
+		id, err := m.MarshalUUID()
+		if err != nil {
+			return errors.New("fail to Marshal uuid")
+		}
+		if err := Add(resource, tag.name, id); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	switch field.Kind() {
 	// If the simple attribute is a map that means that it is in fact a complex attribute where the name is implicit.
 	case reflect.Map:
@@ -149,26 +176,55 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 		}
 	case reflect.Ptr, reflect.Interface:
 		return structEncoderSimple(resource, field.Elem(), tag)
+	// if it's embeded loop over and just call this func[structEncodesimple] for each element
 	case reflect.Struct:
-		fieldStruct := make(map[string]interface{})
 		t := field.Type()
-		for i := 0; i < field.NumField(); i++ {
-			tagIndex := parseTags(t.Field(i))
+		fieldStruct := make(map[string]interface{})
+
+		// for i := 0; i < field.NumField(); i++ {
+		// 	tagIndex := parseTags(t.Field(i))
+		// 	if tagIndex.ignore {
+		// 		continue
+		// 	}
+
+		// 	fieldIndex := field.Field(i)
+		// 	if !tagIndex.allowZero && fieldIndex.IsZero() {
+		// 		continue
+		// 	}
+
+		// 	if err := structEncoder(fieldStruct, fieldIndex, tagIndex); err != nil {
+		// 		return err
+		// 	}
+		// }
+
+		var err error
+		reflectutils.WalkStructElements(t, func(sf reflect.StructField) bool {
+			tagIndex := parseTags(sf)
 			if tagIndex.ignore {
-				continue
+				return false
 			}
 
-			fieldIndex := field.Field(i)
-			if !tagIndex.allowZero && fieldIndex.IsZero() {
-				continue
+			subField := field.FieldByIndex(sf.Index)
+			if !tagIndex.allowZero && subField.IsZero() {
+				return false
 			}
-			if err := structEncoder(fieldStruct, fieldIndex, tagIndex); err != nil {
-				return err
+
+			if sf.Anonymous { // it's embedded struct
+				return true
 			}
+			if e := structEncoder(fieldStruct, subField, tagIndex); e != nil {
+				// return false
+				err = e
+			}
+			return false
+		})
+		if err != nil {
+			return err
 		}
-		if depth := Depth(fieldStruct); 1 < depth {
-			return fmt.Errorf("nested depth exceeded: %d", depth)
-		}
+
+		// if depth := Depth(fieldStruct); 1 < depth {
+		// 	return fmt.Errorf("nested depth exceeded11: %d, struct %+v", depth, fieldStruct)
+		// }
 
 		fieldMap := EnsureComplexAttribute(resource, tag.name)
 		for k, v := range fieldStruct {
@@ -177,7 +233,19 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			}
 		}
 	case reflect.Array, reflect.Slice:
+		// if field.Type() == reflect.TypeOf(([]byte)(nil)) {
+		// 	fieldInterface, err := validSimpleAttribute(field)
+		// 	if err != nil {
+		// 		return err
+		// 	}
+		// 	if err := Add(resource, tag.name, fieldInterface); err != nil {
+		// 		return err
+		// 	}
+		// }
+		// fmt.Printf("invalid simple attribute: %s, %+v", field.Kind(), field.Type())
 		// Simple attributes can never be an array or a slice.
+		fmt.Println("check sqsq")
+		debug.PrintStack()
 		return errors.New(fmt.Sprintf("invalid simple attribute: %s", field.Kind()))
 	default:
 		fieldInterface, err := validSimpleAttribute(field)
@@ -292,6 +360,11 @@ func validSimpleAttribute(v reflect.Value) (interface{}, error) {
 	case reflect.String:
 		return v.String(), nil
 	default:
+		// if v.Type() == reflect.TypeOf(([]byte)(nil)) {
+		// 	fmt.Printf("find byte[]: %s, %+v", v.Kind(), v.Type())
+		// 	return string(v.Bytes()), nil
+		// }
+		// fmt.Printf("invalid simple attribute: %s, %+v", v.Kind(), v.Type())
 		return nil, fmt.Errorf("invalid simple attribute: %s", v.Kind())
 	}
 }
@@ -299,4 +372,7 @@ func validSimpleAttribute(v reflect.Value) (interface{}, error) {
 // Marshaler is the interface implemented by types that can marshal themselves into SCIM resources.
 type Marshaler interface {
 	MarshalSCIM() (map[string]interface{}, error)
+}
+type IDMarshaler interface {
+	MarshalUUID() (string, error)
 }

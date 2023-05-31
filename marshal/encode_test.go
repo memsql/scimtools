@@ -157,7 +157,7 @@ func TestSimple(t *testing.T) {
 			Bool:   true,
 			Int:    1,
 			Map:    map[string]interface{}{str: str},
-			Ptr:    &str,
+			Ptr:    nil,
 			String: str,
 			Struct: structPtrString{
 				Ptr: &str,
