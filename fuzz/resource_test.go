@@ -3,7 +3,7 @@ package fuzz
 import (
 	"testing"
 
-	"github.com/scim2/tools/schema"
+	"github.com/memsql/scimtools/schema"
 )
 
 func TestReferenceSchemaNeverEmpty(t *testing.T) {

@@ -190,8 +190,9 @@ func Exists(resource map[string]interface{}, key string) bool {
 
 // validKey checks whether there is another case insensitive key with the same value.
 // i.e. ("x", "X") -> false
-//		("x", "x") -> true
-//		("x", "y") -> true
+//
+//	("x", "x") -> true
+//	("x", "y") -> true
 func validKey(resource map[string]interface{}, key string) error {
 	for k := range resource {
 		if strings.EqualFold(k, key) && k != key {

@@ -70,7 +70,7 @@ func parseTags(field reflect.StructField) tag {
 			}
 
 			if strings.HasPrefix(option, "index=") || strings.HasPrefix(option, "i=") {
-				option = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(option, "i"), "ndex"), "=")
+				option = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(option, "i"), "index"), "=")
 				if option == "all" {
 					if !sub {
 						t.indexes = []int{-1}

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/gofuzz"
-	"github.com/scim2/tools/schema"
+	"github.com/memsql/scimtools/schema"
 )
 
 type Fuzzer struct {

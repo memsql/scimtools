@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scim2/tools/generate"
-	"github.com/scim2/tools/schema"
+	"github.com/memsql/scimtools/schema"
+
+	"github.com/memsql/scimtools/generate"
 )
 
 func TestGenerateStruct(t *testing.T) {

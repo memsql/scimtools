@@ -4,10 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"runtime/debug"
 
+	. "github.com/memsql/scimtools/attributes"
 	"github.com/muir/reflectutils"
-	. "github.com/scim2/tools/attributes"
 )
 
 var marshalerType = reflect.TypeOf((*Marshaler)(nil)).Elem()
@@ -30,7 +29,6 @@ func Marshal(value interface{}) (map[string]interface{}, error) {
 		}
 		return m.MarshalSCIM()
 	}
-	// fmt.Printf("current Marshal type(%+v), value(%+v), kind(%+v)\n", t, v, t.Kind())
 	switch t.Kind() {
 	case reflect.Interface:
 		if v.IsNil() {
@@ -44,28 +42,34 @@ func Marshal(value interface{}) (map[string]interface{}, error) {
 		resource := make(map[string]interface{})
 
 		t := v.Type()
-		for i := 0; i < v.NumField(); i++ {
-			tag := parseTags(t.Field(i))
+
+		var err error
+		reflectutils.WalkStructElements(t, func(sf reflect.StructField) bool {
+			tag := parseTags(sf)
 			if tag.ignore {
-				continue
+				return false
 			}
 
-			field := v.Field(i)
-			if !tag.allowZero && field.IsZero() {
-				continue
+			subField := v.FieldByIndex(sf.Index)
+			if !tag.allowZero && subField.IsZero() {
+				return false
 			}
-			if err := structEncoder(resource, field, tag); err != nil {
-				return nil, err
+
+			if sf.Anonymous { // it's embedded struct
+				return true
 			}
-		}
-		return resource, nil
+			if e := structEncoder(resource, subField, tag); e != nil {
+				err = e
+			}
+			return false
+		})
+		return resource, err
 	default:
 		return unsupportedTypeEncoder(v)
 	}
 }
 
 func structEncoder(resource map[string]interface{}, field reflect.Value, tag tag) error {
-	// fmt.Printf("tagis: (%+v)", tag)
 	if tag.sub == nil {
 		if tag.multiValued {
 			return structEncoderSimpleMultiValued(resource, field, tag)
@@ -82,7 +86,7 @@ func structEncoder(resource map[string]interface{}, field reflect.Value, tag tag
 func structEncoderComplex(resource map[string]interface{}, field reflect.Value, tag tag) error {
 	subResource := EnsureComplexAttribute(resource, tag.name)
 	if Exists(subResource, tag.sub.name) {
-		return errors.New(fmt.Sprintf("duplicate names: %s", tag.sub.name))
+		return fmt.Errorf("duplicate names: %s", tag.sub.name)
 	}
 	return structEncoderSimple(subResource, field, *tag.sub)
 }
@@ -121,8 +125,6 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 		return nil
 	}
 
-	// fmt.Printf("[structEncoderSimple]: %+v, %+v, %+v\n", field.Kind(), field.Type(), field)
-
 	t := field.Type()
 	if t.Implements(idMarshalerType) {
 		if field.Kind() == reflect.Ptr && field.IsNil() {
@@ -134,7 +136,7 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			return errors.New("value does not implement marshaler")
 		}
 
-		id, err := m.MarshalUUID()
+		id, err := m.MarshalSCIMUUID()
 		if err != nil {
 			return errors.New("fail to Marshal uuid")
 		}
@@ -180,23 +182,6 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 	case reflect.Struct:
 		t := field.Type()
 		fieldStruct := make(map[string]interface{})
-
-		// for i := 0; i < field.NumField(); i++ {
-		// 	tagIndex := parseTags(t.Field(i))
-		// 	if tagIndex.ignore {
-		// 		continue
-		// 	}
-
-		// 	fieldIndex := field.Field(i)
-		// 	if !tagIndex.allowZero && fieldIndex.IsZero() {
-		// 		continue
-		// 	}
-
-		// 	if err := structEncoder(fieldStruct, fieldIndex, tagIndex); err != nil {
-		// 		return err
-		// 	}
-		// }
-
 		var err error
 		reflectutils.WalkStructElements(t, func(sf reflect.StructField) bool {
 			tagIndex := parseTags(sf)
@@ -213,7 +198,6 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 				return true
 			}
 			if e := structEncoder(fieldStruct, subField, tagIndex); e != nil {
-				// return false
 				err = e
 			}
 			return false
@@ -222,6 +206,7 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			return err
 		}
 
+		// MCDB-33068 should have depth limit
 		// if depth := Depth(fieldStruct); 1 < depth {
 		// 	return fmt.Errorf("nested depth exceeded11: %d, struct %+v", depth, fieldStruct)
 		// }
@@ -233,20 +218,7 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			}
 		}
 	case reflect.Array, reflect.Slice:
-		// if field.Type() == reflect.TypeOf(([]byte)(nil)) {
-		// 	fieldInterface, err := validSimpleAttribute(field)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	if err := Add(resource, tag.name, fieldInterface); err != nil {
-		// 		return err
-		// 	}
-		// }
-		// fmt.Printf("invalid simple attribute: %s, %+v", field.Kind(), field.Type())
-		// Simple attributes can never be an array or a slice.
-		fmt.Println("check sqsq")
-		debug.PrintStack()
-		return errors.New(fmt.Sprintf("invalid simple attribute: %s", field.Kind()))
+		return fmt.Errorf("invalid simple attribute: %s", field.Kind())
 	default:
 		fieldInterface, err := validSimpleAttribute(field)
 		if err != nil {
@@ -336,7 +308,7 @@ func structEncoderSimpleMultiValued(resource map[string]interface{}, field refle
 }
 
 func unsupportedTypeEncoder(v reflect.Value) (map[string]interface{}, error) {
-	return nil, errors.New(fmt.Sprintf("unsupported type %s", v.Type()))
+	return nil, fmt.Errorf("unsupported type %s", v.Type())
 }
 
 func validSimpleAttribute(v reflect.Value) (interface{}, error) {
@@ -360,11 +332,6 @@ func validSimpleAttribute(v reflect.Value) (interface{}, error) {
 	case reflect.String:
 		return v.String(), nil
 	default:
-		// if v.Type() == reflect.TypeOf(([]byte)(nil)) {
-		// 	fmt.Printf("find byte[]: %s, %+v", v.Kind(), v.Type())
-		// 	return string(v.Bytes()), nil
-		// }
-		// fmt.Printf("invalid simple attribute: %s, %+v", v.Kind(), v.Type())
 		return nil, fmt.Errorf("invalid simple attribute: %s", v.Kind())
 	}
 }
@@ -374,5 +341,5 @@ type Marshaler interface {
 	MarshalSCIM() (map[string]interface{}, error)
 }
 type IDMarshaler interface {
-	MarshalUUID() (string, error)
+	MarshalSCIMUUID() (string, error)
 }

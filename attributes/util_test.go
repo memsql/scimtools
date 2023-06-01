@@ -2,7 +2,7 @@ package attributes_test
 
 import (
 	"fmt"
-	"github.com/scim2/tools/attributes"
+	"github.com/memsql/scimtools/attributes"
 )
 
 func ExampleContains() {
