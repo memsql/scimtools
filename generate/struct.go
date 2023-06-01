@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/scim2/tools/schema"
+	"github.com/memsql/scimtools/schema"
 )
 
 type StructGenerator struct {

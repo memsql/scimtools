@@ -1,6 +1,6 @@
 package safe
 
-import "github.com/scim2/tools/attributes"
+import "github.com/memsql/scimtools/attributes"
 
 // GetBool searches the given map for a boolean that matches the given id.
 // Returns false if not found.
