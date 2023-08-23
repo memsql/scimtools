@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	// "github.com/Azure/azure-sdk-for-go/sdk/internal/uuid"
 	"github.com/muir/reflectutils"
 )
 
@@ -19,7 +18,6 @@ var (
 func Unmarshal(data map[string]interface{}, value interface{}) error {
 	v := reflect.ValueOf(value)
 	if v.Kind() != reflect.Ptr || v.IsNil() {
-		// fmt.Printf("\nvalue is invalid value(%+v), v(%+v), v.Kind()(%+v)", value, v, v.Kind())
 		return errors.New("value is invalid")
 	}
 
@@ -50,8 +48,6 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 
 		if v := v.FieldByIndex(sf.Index); v.CanAddr() && v.CanSet() {
 			name := lowerFirstRune(tag.name)
-
-			//fmt.Printf("\ntag(%+v) data:(%+v)", tag, data[name])
 
 			if fV, ok := data[name]; ok {
 				if fV == nil {
@@ -126,33 +122,16 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 				}
 
 				if s.Type() != v.Type() {
-					// fmt.Printf("vtype is: (%+v), %T", v.Type().Name(), v.Type())
-					// if v.Type().Name() == "uuid.SCIMResource" {
-					// 	v.Set(reflect.ValueOf(fV).Interface().(uuid.UUID))
-					// } else {
-					// if v is ummarshalluuid
-					// then unmarshaluuid(fv)
-					// if v.CanAddr() {
-					// 	fmt.Printf("before ummarshaluuid v(%+v), vcanaddr(%+v), vaddr(%+v), vaddrType(%+v)\n", v, v.CanAddr(), v.Addr(), v.Addr().Type())
-					// }
-
+					// special handle with uuid type
 					if v.CanAddr() && v.Addr().Type().Implements(ummarshalluuidType) {
 						m, ok := v.Addr().Interface().(IDUnMarshaler)
-						// m, ok := v.Interface().(IDUnMarshaler)
 						if !ok {
 							err = errors.New("value does not implement IDUnMarshaler")
-							// return false
 						}
 						err = m.UnMarshalUUID(fV)
-						// fmt.Printf("after ummarshaluuid m(%+v), v(%+v), fV(%+v)\n", m, v, fV)
-						// if err != nil {
-						// 	return false
-						// }
 					} else {
 						v.Set(reflect.ValueOf(toType(fV, v.Type())))
 					}
-
-					// }
 
 				} else {
 					v.Set(s)
@@ -164,78 +143,6 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 	if err != nil {
 		return err
 	}
-
-	// for i := 0; i < t.NumField(); i++ {
-	// 	structFiled := t.Field(i)
-	// 	tag := parseTags(structFiled)
-
-	// 	// fix embedded
-	// 	if structFiled.Anonymous {
-	// 		if err := Unmarshal(data, v.Field(i).Addr().Interface()); err != nil {
-	// 			return err
-	// 		}
-	// 		continue
-	// 	}
-
-	// 	if v := v.Field(i); v.CanAddr() && v.CanSet() {
-	// 		name := lowerFirstRune(tag.name)
-
-	// 		fmt.Printf("\ntag(%+v) data:(%+v)", tag, data[name])
-
-	// 		if fV, ok := data[name]; ok {
-	// 			if fV == nil {
-	// 				continue
-	// 			}
-	// 			s := reflect.ValueOf(fV)
-	// 			switch s.Kind() {
-	// 			case reflect.Array, reflect.Slice:
-	// 				t := toDefaultSlice(fV)
-	// 				if v.Kind() != reflect.Slice {
-	// 					break
-	// 				}
-	// 				field := reflect.MakeSlice(v.Type(), len(t), len(t))
-	// 				for i, v := range t {
-	// 					switch reflect.ValueOf(v).Kind() {
-	// 					case reflect.Map:
-	// 						t := toDefaultMap(v)
-	// 						typ := field.Index(i).Type()
-	// 						element := reflect.New(typ)
-	// 						initializeStruct(typ, element.Elem())
-	// 						if err := Unmarshal(t, element.Interface()); err != nil {
-	// 							return err
-	// 						}
-	// 						field.Index(i).Set(element.Elem())
-	// 					default:
-	// 						field.Index(i).Set(reflect.ValueOf(v))
-	// 					}
-	// 				}
-	// 				v.Set(field)
-	// 				continue
-	// 			case reflect.Map:
-	// 				t := toDefaultMap(fV)
-	// 				field := reflect.New(v.Type())
-	// 				initializeStruct(v.Type(), field.Elem())
-	// 				if err := Unmarshal(t, field.Interface()); err != nil {
-	// 					return err
-	// 				}
-	// 				v.Set(field.Elem())
-	// 				continue
-	// 			}
-	// 			if s.Kind() != v.Kind() {
-	// 				return fmt.Errorf(
-	// 					"types of %q do not match: got %s, want %s",
-	// 					name, s.Type(), v.Type(),
-	// 				)
-	// 			}
-
-	// 			if s.Type() != v.Type() {
-	// 				v.Set(reflect.ValueOf(toType(fV, v.Type())))
-	// 			} else {
-	// 				v.Set(s)
-	// 			}
-	// 		}
-	// 	}
-	// }
 	return nil
 }
 
@@ -245,7 +152,7 @@ type Unmarshaler interface {
 }
 
 type IDUnMarshaler interface {
-	// uuid.scimresource
+	// sqsq uuid.scimresource
 	UnMarshalUUID(interface{}) error
 }
 
@@ -259,9 +166,7 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 		case reflect.Slice:
 			f.Set(reflect.MakeSlice(ft.Type, 0, 0))
 		case reflect.Struct:
-			// if !ft.Anonymous {
 			initializeStruct(ft.Type, f)
-			// }
 		case reflect.Ptr:
 			fv := reflect.New(ft.Type.Elem())
 			initializeStruct(ft.Type.Elem(), fv.Elem())

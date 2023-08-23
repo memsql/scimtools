@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	// "github.com/muir/reflectutils"
 )
 
 // Add stores the given key and value, returns an error if the key in use.
@@ -103,7 +104,7 @@ func AppendMultiValuedAttribute(resource map[string]interface{}, key string, val
 	return fmt.Errorf("key not found: %s", key)
 }
 
-// Depth returns the amount of nested maps.
+// sqsq make it better. Depth returns the amount of nested maps.
 func Depth(resource map[string]interface{}) int {
 	var depth int
 	for _, attribute := range resource {
@@ -190,8 +191,9 @@ func Exists(resource map[string]interface{}, key string) bool {
 
 // validKey checks whether there is another case insensitive key with the same value.
 // i.e. ("x", "X") -> false
-//		("x", "x") -> true
-//		("x", "y") -> true
+//
+//	("x", "x") -> true
+//	("x", "y") -> true
 func validKey(resource map[string]interface{}, key string) error {
 	for k := range resource {
 		if strings.EqualFold(k, key) && k != key {

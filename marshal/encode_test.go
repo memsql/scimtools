@@ -157,7 +157,7 @@ func TestSimple(t *testing.T) {
 			Bool:   true,
 			Int:    1,
 			Map:    map[string]interface{}{str: str},
-			Ptr:    nil,
+			Ptr:    &str,
 			String: str,
 			Struct: structPtrString{
 				Ptr: &str,
@@ -252,6 +252,7 @@ func TestSimple(t *testing.T) {
 				t.Error("expected error, got none")
 			}
 		})
+
 	})
 }
 
