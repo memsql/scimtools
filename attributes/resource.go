@@ -104,7 +104,7 @@ func AppendMultiValuedAttribute(resource map[string]interface{}, key string, val
 	return fmt.Errorf("key not found: %s", key)
 }
 
-// sqsq make it better. Depth returns the amount of nested maps.
+// Depth returns the amount of nested maps.
 func Depth(resource map[string]interface{}) int {
 	var depth int
 	for _, attribute := range resource {

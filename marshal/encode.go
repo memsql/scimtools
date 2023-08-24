@@ -42,21 +42,28 @@ func Marshal(value interface{}) (map[string]interface{}, error) {
 		resource := make(map[string]interface{})
 
 		t := v.Type()
-		for i := 0; i < v.NumField(); i++ {
-			tag := parseTags(t.Field(i))
+
+		var err error
+		reflectutils.WalkStructElements(t, func(sf reflect.StructField) bool {
+			tag := parseTags(sf)
 			if tag.ignore {
-				continue
+				return false
 			}
 
-			field := v.Field(i)
-			if !tag.allowZero && field.IsZero() {
-				continue
+			subField := v.FieldByIndex(sf.Index)
+			if !tag.allowZero && subField.IsZero() {
+				return false
 			}
-			if err := structEncoder(resource, field, tag); err != nil {
-				return nil, err
+
+			if sf.Anonymous { // it's embedded struct
+				return true
 			}
-		}
-		return resource, nil
+			if e := structEncoder(resource, subField, tag); e != nil {
+				err = e
+			}
+			return false
+		})
+		return resource, err
 	default:
 		return unsupportedTypeEncoder(v)
 	}
@@ -199,7 +206,7 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			return err
 		}
 
-		// // sqsq should have depth limit?
+		// MCDB-33068 should have depth limit
 		// if depth := Depth(fieldStruct); 1 < depth {
 		// 	return fmt.Errorf("nested depth exceeded11: %d, struct %+v", depth, fieldStruct)
 		// }
