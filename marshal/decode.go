@@ -189,7 +189,8 @@ func toDefaultSlice(m interface{}) []interface{} {
 	return m.([]interface{})
 }
 
-func toType(i interface{}, t reflect.Type) interface{} {
+func toType(i any, t reflect.Type) interface{} {
+	// sqsq canconvert check
 	return reflect.
 		ValueOf(i).
 		Convert(t).
