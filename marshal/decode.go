@@ -128,7 +128,7 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 						if !ok {
 							err = errors.New("value does not implement IDUnMarshaler")
 						}
-						err = m.UnMarshalUUID(fV)
+						err = m.UnmarshalSCIMUUID(fV)
 					} else {
 						v.Set(reflect.ValueOf(toType(fV, v.Type())))
 					}
@@ -152,8 +152,7 @@ type Unmarshaler interface {
 }
 
 type IDUnMarshaler interface {
-	// sqsq uuid.scimresource
-	UnMarshalUUID(interface{}) error
+	UnmarshalSCIMUUID(interface{}) error
 }
 
 func initializeStruct(t reflect.Type, v reflect.Value) {

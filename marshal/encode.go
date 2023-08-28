@@ -136,7 +136,7 @@ func structEncoderSimple(resource map[string]interface{}, field reflect.Value, t
 			return errors.New("value does not implement marshaler")
 		}
 
-		id, err := m.MarshalUUID()
+		id, err := m.MarshalSCIMUUID()
 		if err != nil {
 			return errors.New("fail to Marshal uuid")
 		}
@@ -341,5 +341,5 @@ type Marshaler interface {
 	MarshalSCIM() (map[string]interface{}, error)
 }
 type IDMarshaler interface {
-	MarshalUUID() (string, error)
+	MarshalSCIMUUID() (string, error)
 }
