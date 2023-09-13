@@ -176,15 +176,15 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 }
 
 func toDefaultMap(m interface{}) map[string]interface{} {
-	if reflect.TypeOf(m) != mapType {
-		return toType(m, mapType).(map[string]interface{})
+	if reflect.TypeOf(m) != mapStringAnyType {
+		return toType(m, mapStringAnyType).(map[string]interface{})
 	}
 	return m.(map[string]interface{})
 }
 
 func toDefaultSlice(m interface{}) []interface{} {
-	if reflect.TypeOf(m) != sliceType {
-		return toType(m, sliceType).([]interface{})
+	if reflect.TypeOf(m) != anySliceType {
+		return toType(m, anySliceType).([]interface{})
 	}
 	return m.([]interface{})
 }
