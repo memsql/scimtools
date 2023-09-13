@@ -11,8 +11,8 @@ import (
 var (
 	ummarshalluuidType = reflect.TypeOf((*IDUnMarshaler)(nil)).Elem()
 	unmarshalerType    = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
-	mapType            = reflect.TypeOf(map[string]interface{}{})
-	sliceType          = reflect.TypeOf([]interface{}{})
+	mapStringAnyType   = reflect.TypeOf(map[string]interface{}{})
+	anySliceType       = reflect.TypeOf([]interface{}{})
 )
 
 func Unmarshal(data map[string]interface{}, value interface{}) error {
@@ -59,8 +59,7 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 					if t, ok := fV.([]map[string]interface{}); ok {
 						field := reflect.MakeSlice(v.Type(), len(t), len(t))
 						for i, v := range t {
-							switch reflect.ValueOf(v).Kind() {
-							case reflect.Map:
+							if reflect.ValueOf(v).Kind() == reflect.Map {
 								t := toDefaultMap(v)
 								typ := field.Index(i).Type()
 								element := reflect.New(typ)
@@ -69,7 +68,7 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 									err = e
 								}
 								field.Index(i).Set(element.Elem())
-							default:
+							} else {
 								field.Index(i).Set(reflect.ValueOf(v))
 							}
 						}
@@ -79,6 +78,7 @@ func Unmarshal(data map[string]interface{}, value interface{}) error {
 					} else {
 						t := toDefaultSlice(fV)
 
+						// if v.kind not match the value's kind, then skip
 						if v.Kind() != reflect.Slice {
 							break
 						}
